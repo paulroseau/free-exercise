@@ -58,18 +58,25 @@ object CustomDirectives {
                 inner(Tuple1(t)) 
               }
               case Left(errMsg) => Directive[Tuple1[T]] { inner => 
-                complete(
-                  StatusCodes.BadRequest, 
-                  s"""{ "status" : "error", "desc" : "Deserialization error $errMsg" }"""
-                )
+                complete(deserializationError(errMsg).toHttp(StatusCodes.BadRequest))
               }
             }
           }
           case ct => 
-            complete(
-              StatusCodes.UnsupportedMediaType, 
-              s"""{ "status" : "error", "desc" : "Content type $ct is unsupported, use "application/json" instead" }"""
-          )
+            complete(unsupportedContentType(ct).toHttp(StatusCodes.UnsupportedMediaType))
         }
       }
+
+  def deserializationError(errorMsg: String) =
+    ResponseMessage(
+      status = "error", 
+      desc = s"Deserialization error $errorMsg"
+    )
+
+  def unsupportedContentType(contentType: ContentType) =
+    ResponseMessage(
+      status = "error", 
+      desc = s"""Content type $contentType is unsupported, use \"application/json\" instead"""
+    )
+
 }

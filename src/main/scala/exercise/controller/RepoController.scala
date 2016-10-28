@@ -5,58 +5,58 @@ import scala.concurrent.{ Future, ExecutionContext }
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.{ Route, RouteResult }
 
+import argonaut._, Argonaut._, ArgonautShapeless._
+
 import exercise.model.User
 import exercise.db.UserRepository
 import exercise.util.ResponseMessage
 
-import argonaut._, Argonaut._, ArgonautShapeless._
-
-class RepoController(
-  repo: UserRepository
-) {
+class RepoController(repo: UserRepository) {
 
   import RepoController._
 
   def getUserId(
     uid: Long
-  ): Route = ctx => {
+  ): Route = {
       val userOpt = repo.getUser(uid)
       userOpt match {
         case Some(user) =>
-          ctx.complete(
+          ctx => ctx.complete(
             HttpResponse(
               status = StatusCodes.OK, 
               entity = HttpEntity(
                 ContentTypes.`application/json`,
                 user.asJson.spaces2)))
         case None =>
-          ctx.complete(StatusCodes.NotFound, userNotFound(uid).asJson.spaces2)
+          ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
       } 
     }
 
   def createUser(
     user: User
-  ): Route = ctx => {
+  ): Route = {
     val uid = repo.createUser(user)
-    ctx.complete(response(StatusCodes.OK, userCreated(uid)))
+    ctx => ctx.complete(userCreated(uid).toHttp(StatusCodes.OK))
   }
 
   def updateUser(
     uid: Long,
     newUser: User
-  ): Route = ctx => {
+  ): Route = 
     repo.updateUser(uid, newUser) match {
-      case Some(_) => ctx.complete(response(StatusCodes.OK, userUpdated(uid)))
-      case None => ctx.complete(StatusCodes.NotFound, userNotFound(uid).asJson.spaces2)
+      case Some(_) => 
+        ctx => ctx.complete(userUpdated(uid).toHttp(StatusCodes.OK))
+      case None => 
+        ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
-  }
 
-  def deleteUser(uid: Long): Route = ctx => {
+  def deleteUser(uid: Long): Route =
     repo.deleteUser(uid) match {
-      case Some(_) => ctx.complete(response(StatusCodes.OK, userDeleted(uid)))
-      case None => ctx.complete(StatusCodes.NotFound, userNotFound(uid).asJson.spaces2)
+      case Some(_) => 
+        ctx => ctx.complete(userDeleted(uid).toHttp(StatusCodes.OK))
+      case None => 
+        ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
-  }
 
 }
 
@@ -64,16 +64,6 @@ object RepoController {
 
   def apply(repo: UserRepository): RepoController =
     new RepoController(repo)
-
-  def response(
-    status: StatusCode,
-    msg: ResponseMessage
-  ): HttpResponse =
-    HttpResponse(
-      status = status, 
-      entity = HttpEntity(
-        ContentTypes.`application/json`,
-        msg.asJson.spaces2))
 
   def userCreated(uid: Long) =
     ResponseMessage("success", s"User id $uid created")
