@@ -7,20 +7,43 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 
 import scala.io.StdIn
- 
+
+import exercise.controller.RepoController
+import exercise.db.InMemoryUserRepo
+import exercise.model.User
+import exercise.util._
+
 object Server {
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
  
     implicit val system = ActorSystem("main-system")
     implicit val materializer = ActorMaterializer()
     // needed for the future flatMap/onComplete in the end
     implicit val executionContext = system.dispatcher
- 
+
+    val controller = RepoController(new InMemoryUserRepo)
+    import CustomDirectives._
+
     val route =
-      path("hello") {
-        get {
-          complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "Hello World"))
+      pathPrefix("user") {
+        pathSuffix(LongNumber) { uid =>
+          get { 
+            controller.getUserId(uid)
+          } ~
+          put { 
+            extractWithArgonaut[User](User.decoder) { newUser =>
+              controller.updateUser(uid, newUser)
+            }
+          } ~
+          delete { 
+            controller.deleteUser(uid)
+          } 
+        } ~
+        post { 
+          extractWithArgonaut[User](User.decoder) { user =>
+            controller.createUser(user)
+          }
         }
       }
  
