@@ -1,10 +1,11 @@
 #!/bin/sh
 
+ERRORED=0
+
 if ! which http >/dev/null 2>&1; then
   echo "http command not found." 1>&2
   echo "Install it with" 1>&2
   echo "  brew install httpie" 1>&2
-
   ERRORED=1
 fi
 
@@ -12,11 +13,10 @@ if ! which jq >/dev/null 2>&1; then
   echo "jq command not found." 1>&2
   echo "Install it with" 1>&2
   echo "  brew install jq" 1>&2
-
   ERRORED=1
 fi
 
-if [ $ERRORED = 1 ]; then
+if [ $ERRORED -eq 1 ]; then
   exit 255
 fi
 
@@ -59,8 +59,8 @@ sleep 1
 echo "Test #4 : We should get existing user"
 RESP=$(http http://localhost:8080/user/1)
 echo $RESP
-STATUS=$(echo $RESP | jq -r .status)
-if [ $STATUS == "success" ]
+AGE=$(echo $RESP | jq -r .age)
+if [ $AGE -eq 25 ]
 then
   echo "Test #4 -> OK"
 else
