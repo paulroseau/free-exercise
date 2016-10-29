@@ -7,57 +7,81 @@ import akka.http.scaladsl.server.{ Route, RouteResult }
 
 import argonaut._, Argonaut._, ArgonautShapeless._
 
-import exercise.model.User
+import exercise.algebra.StoreOps
 import exercise.db.UserRepository
+import exercise.interpreter.StoreInterpreter
+import exercise.model.User
 import exercise.util.ResponseMessage
 
 class RepoController(repo: UserRepository) {
 
   import RepoController._
 
-  def getUserId(
-    uid: Long
-  ): Route = {
-      val userOpt = repo.getUser(uid)
-      userOpt match {
-        case Some(user) =>
-          ctx => ctx.complete(
-            HttpResponse(
-              status = StatusCodes.OK, 
-              entity = HttpEntity(
-                ContentTypes.`application/json`,
-                user.asJson.spaces2)))
-        case None =>
-          ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
-      } 
-    }
+  val interpreter = StoreInterpreter.syncImpure(repo)
+
+  def getUserId(uid: Long): Route = {
+
+    val action = for {
+      userOpt <- StoreOps.getUser(uid)
+    } yield userOpt
+
+    action.foldMap(interpreter) match {
+      case Some(user) =>
+        ctx => ctx.complete(
+          HttpResponse(
+            status = StatusCodes.OK, 
+            entity = HttpEntity(
+              ContentTypes.`application/json`,
+              user.asJson.spaces2)))
+      case None =>
+        ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
+    } 
+  }
 
   def createUser(
     user: User
   ): Route = {
-    val uid = repo.createUser(user)
-    ctx => ctx.complete(userCreated(uid).toHttp(StatusCodes.OK))
+
+    val action = for {
+      uid <- StoreOps.createUser(user)
+    } yield uid
+
+    ctx => ctx.complete(
+      userCreated(action.foldMap(interpreter))
+        .toHttp(StatusCodes.OK)
+      )
   }
 
   def updateUser(
     uid: Long,
     newUser: User
-  ): Route = 
-    repo.updateUser(uid, newUser) match {
+  ): Route = {
+
+    val action = for {
+      opt <- StoreOps.updateUser(uid, newUser)
+    } yield opt
+
+    action.foldMap(interpreter) match {
       case Some(_) => 
         ctx => ctx.complete(userUpdated(uid).toHttp(StatusCodes.OK))
       case None => 
         ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
+  }
 
-  def deleteUser(uid: Long): Route =
-    repo.deleteUser(uid) match {
+  def deleteUser(uid: Long): Route = {
+
+    val action = for {
+      opt <- StoreOps.deleteUser(uid)
+    } yield opt
+
+    action.foldMap(interpreter) match {
       case Some(_) => 
         ctx => ctx.complete(userDeleted(uid).toHttp(StatusCodes.OK))
       case None => 
         ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
-
+  }
 }
 
 object RepoController {
