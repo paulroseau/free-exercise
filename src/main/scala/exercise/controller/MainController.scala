@@ -72,21 +72,33 @@ class MainController[F[_]](implicit
     }
   }
 
-  def updateUser(uid: Long, entity: HttpEntity): F[RouteResult] = ???
+  def updateUser(uid: Long, entity: HttpEntity): F[RouteResult] =
+    withUserExtracted(entity) { newUser =>
+      val res = Action.updateUser(uid, newUser).foldMap(interpreter)
+
+      MF.map(res) { 
+        case Some(_) => 
+          RouteResult.Complete(
+            userUpdated(uid).toHttp(StatusCodes.OK)
+          )
+        case None => 
+          RouteResult.Complete(
+            userNotFound(uid).toHttp(StatusCodes.NotFound)
+          )
+      }
+    }
 
   def deleteUser(uid: Long): F[RouteResult] = {
     val res = 
       Action.deleteUser(uid).foldMap(interpreter)
 
-    MF.flatMap(res) { 
+    MF.map(res) { 
       case Some(_) =>
-        MF.pure(
-          RouteResult.Complete(
-            userUpdated(uid).toHttp(StatusCodes.OK)))
+        RouteResult.Complete(
+          userUpdated(uid).toHttp(StatusCodes.OK))
       case None =>
-        MF.pure(
-          RouteResult.Complete(
-            userNotFound(uid).toHttp(StatusCodes.NotFound)))
+        RouteResult.Complete(
+          userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
   }
 
@@ -125,6 +137,11 @@ class MainController[F[_]](implicit
       userOpt <- storeOps.getUser(uid)
       _ <- logOps.logUserRetrieval(uid, userOpt)
     } yield userOpt
+
+    def updateUser(uid: Long, newUser: User): Free[Op, Option[Unit]] = for {
+      opt <- storeOps.updateUser(uid, newUser)
+      _ <- logOps.logUserUpdate(uid, opt, newUser)
+    } yield opt
 
     def deleteUser(uid: Long): Free[Op, Option[Unit]] = for {
       opt <- storeOps.deleteUser(uid)
