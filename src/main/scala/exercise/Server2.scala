@@ -11,9 +11,12 @@ import akka.stream.ActorMaterializer
 
 import scala.io.StdIn
 
+import cats.free.Inject
+
+import exercise.algebra.{ LogOps, StoreOps, SerializationOps }
 import exercise.controller.MainController
 import exercise.db.InMemoryUserRepoSync
-import exercise.interpreter.{ LoggerInterpreter, StoreInterpreter }
+import exercise.interpreter.{ LoggerInterpreter, StoreInterpreter, SerializerInterpreter }
 import exercise.util.ToFutureConv
 
 object Server2 {
@@ -27,10 +30,20 @@ object Server2 {
     // needed for the future flatMap/onComplete in the end
     implicit val executionContext = system.dispatcher
 
+    import Inject._ // implicits for Coproducts here
+    implicit val storeOps = 
+      new StoreOps[MainController.Op]
+    implicit val logOps = 
+      new LogOps[MainController.Op]
+    implicit val serializationOps = 
+      new SerializationOps[MainController.Op]
+
     implicit val storeInterpreter = 
       StoreInterpreter.futureInterpreter(new InMemoryUserRepoSync)
     implicit val loggerInterpreter = 
       LoggerInterpreter.futureInterpreter
+    implicit val serializerInterpreter = 
+      SerializerInterpreter.futureInterpreter
 
     val controller = new MainController[Future]()
 

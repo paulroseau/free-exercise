@@ -9,22 +9,27 @@ import akka.http.scaladsl.model.{ HttpEntity, HttpRequest }
 import cats.arrow.FunctionK
 import cats.data.Coproduct
 
-import exercise.algebra.{ LogOp, StoreOp }
+import exercise.algebra._
 import exercise.interpreter.Interpreter
 import exercise.util.ToFutureConv
 
 class MainController[F[_]](implicit 
   converter: ToFutureConv[F],
+  storeOps: StoreOps[MainController.Op],
+  logOps: LogOps[MainController.Op],
+  serializationOps: SerializationOps[MainController.Op],
   storeInterpreter: FunctionK[StoreOp, F],
-  loggerInterpreter: FunctionK[LogOp, F]
+  loggerInterpreter: FunctionK[LogOp, F],
+  serializationInterpreter: FunctionK[SerializationOp, F]
 ) {
 
   import Interpreter._
+  import MainController._
 
   implicit def ftoFuture[T](f: F[T]): Future[T] = 
     converter(f)
 
-  val interpreter = Interpreter[MainController.Op, F]
+  val interpreter = Interpreter[Op, F]
 
   def createUser(entity: HttpEntity): F[RouteResult] = ???
 
@@ -38,6 +43,7 @@ class MainController[F[_]](implicit
 
 object MainController {
 
-  type Op[T] = Coproduct[StoreOp, LogOp, T]
+  type Op0[T] = Coproduct[LogOp, SerializationOp, T]
+  type Op[T] = Coproduct[StoreOp, Op0, T]
 
 }
