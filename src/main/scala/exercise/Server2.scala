@@ -12,6 +12,7 @@ import akka.stream.ActorMaterializer
 import scala.io.StdIn
 
 import cats.free.Inject
+import cats.instances._
 
 import exercise.algebra.{ LogOps, StoreOps, SerializationOps }
 import exercise.controller.MainController
@@ -19,7 +20,7 @@ import exercise.db.InMemoryUserRepoSync
 import exercise.interpreter.{ LoggerInterpreter, StoreInterpreter, SerializerInterpreter }
 import exercise.util.ToFutureConv
 
-object Server2 {
+object Server2 extends FutureInstances {
 
   import ToFutureConv._
 
