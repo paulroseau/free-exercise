@@ -1,23 +1,28 @@
 package exercise
 
+import scala.concurrent.Future
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
 import akka.stream.ActorMaterializer
 
 import scala.io.StdIn
 
-import cats.data.Coproduct
 import cats.free.Inject
+import cats.instances._
 
-import exercise.algebra._
-import exercise.controller.RepoController
+import exercise.algebra.{ LogOps, StoreOps, SerializationOps }
+import exercise.controller.MainController
 import exercise.db.InMemoryUserRepoSync
-import exercise.model.User
-import exercise.util._
+import exercise.interpreter.{ LoggerInterpreter, StoreInterpreter, SerializerInterpreter }
+import exercise.util.ToFutureConv
 
-object Server {
+object Server extends FutureInstances {
+
+  import ToFutureConv._
 
   def main(args: Array[String]): Unit = {
 
@@ -27,31 +32,37 @@ object Server {
     implicit val executionContext = system.dispatcher
 
     import Inject._ // implicits for Coproducts here
-    implicit val storeOps = new StoreOps[Coproduct[StoreOp, LogOp, ?]]
-    implicit val logOps = new LogOps[Coproduct[StoreOp, LogOp, ?]]
-    val controller = RepoController(new InMemoryUserRepoSync)
+    implicit val storeOps = 
+      new StoreOps[MainController.Op]
+    implicit val logOps = 
+      new LogOps[MainController.Op]
+    implicit val serializationOps = 
+      new SerializationOps[MainController.Op]
 
-    import CustomDirectives._
+    implicit val storeInterpreter = 
+      StoreInterpreter.futureInterpreter(new InMemoryUserRepoSync)
+    implicit val loggerInterpreter = 
+      LoggerInterpreter.futureInterpreter
+    implicit val serializerInterpreter = 
+      SerializerInterpreter.futureInterpreter
 
-    val route =
+    val controller = new MainController[Future]()
+
+    val route: Route = 
       pathPrefix("user") {
         pathSuffix(LongNumber) { uid =>
           get { 
-            controller.getUser(uid)
+            ctx => controller.getUser(uid)
           } ~
           put { 
-            extractWithArgonaut[User](User.decoder) { newUser =>
-              controller.updateUser(uid, newUser)
-            }
+            ctx => controller.updateUser(uid, ctx.request.entity)
           } ~
           delete { 
-            controller.deleteUser(uid)
+            ctx => controller.deleteUser(uid)
           } 
         } ~
         post { 
-          extractWithArgonaut[User](User.decoder) { user =>
-            controller.createUser(user)
-          }
+          ctx => controller.createUser(ctx.request.entity)
         }
       }
  
