@@ -12,6 +12,8 @@ import akka.stream.ActorMaterializer
 import scala.io.StdIn
 
 import exercise.controller.MainController
+import exercise.db.InMemoryUserRepoSync
+import exercise.interpreter.StoreInterpreter
 import exercise.util.ToFutureConv
 
 object Server2 {
@@ -24,6 +26,9 @@ object Server2 {
     implicit val materializer = ActorMaterializer()
     // needed for the future flatMap/onComplete in the end
     implicit val executionContext = system.dispatcher
+
+    implicit val storeInterpreter = 
+      StoreInterpreter.futureInterpreter(new InMemoryUserRepoSync)
 
     val controller = new MainController[Future]()
 
