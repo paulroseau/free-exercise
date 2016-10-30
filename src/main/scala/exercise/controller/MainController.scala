@@ -7,15 +7,19 @@ import akka.http.scaladsl.server.RouteResult
 import akka.http.scaladsl.model.{ HttpEntity, HttpRequest }
 
 import cats.arrow.FunctionK
+import cats.data.Coproduct
 
-import exercise.algebra.StoreOp
+import exercise.algebra.{ LogOp, StoreOp }
 import exercise.interpreter.Interpreter
 import exercise.util.ToFutureConv
 
 class MainController[F[_]](implicit 
   converter: ToFutureConv[F],
-  storeConverter: FunctionK[StoreOp, F]
+  storeInterpreter: FunctionK[StoreOp, F],
+  loggerInterpreter: FunctionK[LogOp, F]
 ) {
+
+  import Interpreter._
 
   implicit def ftoFuture[T](f: F[T]): Future[T] = 
     converter(f)
@@ -34,6 +38,6 @@ class MainController[F[_]](implicit
 
 object MainController {
 
-  type Op[T] = StoreOp[T]
+  type Op[T] = Coproduct[StoreOp, LogOp, T]
 
 }

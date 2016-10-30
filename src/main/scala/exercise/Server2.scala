@@ -13,7 +13,7 @@ import scala.io.StdIn
 
 import exercise.controller.MainController
 import exercise.db.InMemoryUserRepoSync
-import exercise.interpreter.StoreInterpreter
+import exercise.interpreter.{ LoggerInterpreter, StoreInterpreter }
 import exercise.util.ToFutureConv
 
 object Server2 {
@@ -29,6 +29,8 @@ object Server2 {
 
     implicit val storeInterpreter = 
       StoreInterpreter.futureInterpreter(new InMemoryUserRepoSync)
+    implicit val loggerInterpreter = 
+      LoggerInterpreter.futureInterpreter
 
     val controller = new MainController[Future]()
 
