@@ -7,12 +7,12 @@ import cats.arrow.FunctionK
 
 import exercise.algebra._
 
-object StoreLoggingInterpreter {
+object LoggerInterpreter {
 
-  val idInterpreter: FunctionK[StoreLoggingOp, Id] =
-    new FunctionK[StoreLoggingOp, Id] {
+  val idInterpreter: FunctionK[LogOp, Id] =
+    new FunctionK[LogOp, Id] {
 
-      def apply[T](logOp: StoreLoggingOp[T]): Id[T] =
+      def apply[T](logOp: LogOp[T]): Id[T] =
         logOp match {
           case LogUserCreation(uid, user) => 
             Console.out.println(s"Creation of user #${uid} : $user")
@@ -40,10 +40,10 @@ object StoreLoggingInterpreter {
         }
     }
 
-  def futureInterpreter(implicit ec: ExecutionContext): FunctionK[StoreLoggingOp, Future] =
-    new FunctionK[StoreLoggingOp, Future] {
+  def futureInterpreter(implicit ec: ExecutionContext): FunctionK[LogOp, Future] =
+    new FunctionK[LogOp, Future] {
 
-      def apply[T](logOp: StoreLoggingOp[T]): Future[T] =
+      def apply[T](logOp: LogOp[T]): Future[T] =
         logOp match {
           case LogUserCreation(uid, user) => 
             Future(

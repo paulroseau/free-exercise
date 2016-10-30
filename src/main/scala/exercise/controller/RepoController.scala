@@ -12,13 +12,13 @@ import cats.instances.FutureInstances // implicit for making Future a Monad here
 
 import exercise.algebra._
 import exercise.db.UserRepository
-import exercise.interpreter.{ StoreInterpreter, StoreLoggingInterpreter }
+import exercise.interpreter.{ StoreInterpreter, LoggerInterpreter }
 import exercise.model.User
 import exercise.util.ResponseMessage
 
 class RepoController(repo: UserRepository)(implicit
-  storeOps: StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
-  logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
+  storeOps: StoreOps[Coproduct[StoreOp, LogOp, ?]],
+  logOps: LogOps[Coproduct[StoreOp, LogOp, ?]],
   ec: ExecutionContext
 ) extends FutureInstances {
 
@@ -26,7 +26,7 @@ class RepoController(repo: UserRepository)(implicit
 
   val interpreter = 
     StoreInterpreter.futureInterpreter(repo) 
-      .or(StoreLoggingInterpreter.futureInterpreter)
+      .or(LoggerInterpreter.futureInterpreter)
 
   def getUser(uid: Long): Route = ctx => {
 
@@ -122,8 +122,8 @@ object RepoController {
   def apply(
     repo: UserRepository
   )(implicit
-    storeOps: StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
-    logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
+    storeOps: StoreOps[Coproduct[StoreOp, LogOp, ?]],
+    logOps: LogOps[Coproduct[StoreOp, LogOp, ?]],
     ec: ExecutionContext
   ): RepoController =
     new RepoController(repo)

@@ -6,13 +6,13 @@ import exercise.model.User
 
 import cats.free.{ Free, Inject }
 
-sealed trait StoreLoggingOp[T]
-case class LogUserCreation(uid: Long, user: User) extends StoreLoggingOp[Unit]
-case class LogUserRetrieval(uid: Long, userOpt: Option[User]) extends StoreLoggingOp[Unit]
-case class LogUserUpdate(uid: Long, opt: Option[Unit], newUser: User) extends StoreLoggingOp[Unit]
-case class LogUserDeletion(uid: Long, opt: Option[Unit]) extends StoreLoggingOp[Unit]
+sealed trait LogOp[T]
+case class LogUserCreation(uid: Long, user: User) extends LogOp[Unit]
+case class LogUserRetrieval(uid: Long, userOpt: Option[User]) extends LogOp[Unit]
+case class LogUserUpdate(uid: Long, opt: Option[Unit], newUser: User) extends LogOp[Unit]
+case class LogUserDeletion(uid: Long, opt: Option[Unit]) extends LogOp[Unit]
 
-class StoreLoggingOps[F[_]](implicit ev: Inject[StoreLoggingOp, F]) {
+class LogOps[F[_]](implicit ev: Inject[LogOp, F]) {
 
   def logUserCreation(uid: Long, user: User): Free[F, Unit] =
     Free.inject(LogUserCreation(uid, user))

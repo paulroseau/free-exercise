@@ -27,8 +27,8 @@ object Server {
     implicit val executionContext = system.dispatcher
 
     import Inject._ // implicits for Coproducts here
-    implicit val storeOps = new StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
-    implicit val logOps = new StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
+    implicit val storeOps = new StoreOps[Coproduct[StoreOp, LogOp, ?]]
+    implicit val logOps = new LogOps[Coproduct[StoreOp, LogOp, ?]]
     val controller = RepoController(new InMemoryUserRepoSync)
 
     import CustomDirectives._
