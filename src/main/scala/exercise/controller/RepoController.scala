@@ -25,7 +25,7 @@ class RepoController(repo: UserRepository)(implicit
   import RepoController._
 
   val interpreter = 
-    StoreInterpreter.asyncImpure(repo) 
+    StoreInterpreter.futureInterpreter(repo) 
       .or(StoreLoggingInterpreter.futureInterpreter)
 
   def getUser(uid: Long): Route = ctx => {

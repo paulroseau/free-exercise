@@ -10,7 +10,9 @@ import exercise.db.UserRepository
 
 object StoreInterpreter {
 
-  def syncImpure(repo: UserRepository): FunctionK[StoreOp, Id] =
+  def idInterpreter(
+    repo: UserRepository
+  ): FunctionK[StoreOp, Id] =
     new FunctionK[StoreOp, Id] {
       def apply[T](storeOp: StoreOp[T]): Id[T] =
         storeOp match {
@@ -21,7 +23,7 @@ object StoreInterpreter {
         }
     }
 
-  def asyncImpure(
+  def futureInterpreter(
     repo: UserRepository
   )(implicit 
     ec: ExecutionContext
