@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.{ Route, RouteResult }
 import argonaut._, Argonaut._, ArgonautShapeless._
 
 import cats.data.Coproduct
+import cats.instances.FutureInstances // implicit for making Future a Monad here
 
 import exercise.algebra._
 import exercise.db.UserRepository
@@ -17,14 +18,15 @@ import exercise.util.ResponseMessage
 
 class RepoController(repo: UserRepository)(implicit
   storeOps: StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
-  logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
-) {
+  logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
+  ec: ExecutionContext
+) extends FutureInstances {
 
   import RepoController._
 
   val interpreter = 
-    StoreInterpreter.syncImpure(repo) 
-      .or(StoreLoggingInterpreter.idInterpreter)
+    StoreInterpreter.asyncImpure(repo) 
+      .or(StoreLoggingInterpreter.futureInterpreter)
 
   def getUser(uid: Long): Route = ctx => {
 
@@ -33,16 +35,20 @@ class RepoController(repo: UserRepository)(implicit
       _ <- logOps.logUserRetrieval(uid, userOpt)
     } yield userOpt
 
-    action.foldMap(interpreter) match {
-      case Some(user) =>
-        ctx.complete(
-          HttpResponse(
+    action
+      .foldMap(interpreter)
+      .map {
+        case Some(user) =>
+          RouteResult.Complete(
+            HttpResponse(
             status = StatusCodes.OK, 
             entity = HttpEntity(
               ContentTypes.`application/json`,
               user.asJson.spaces2)))
-      case None =>
-        ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
+        case None =>
+          RouteResult.Complete(
+            userNotFound(uid).toHttp(StatusCodes.NotFound)
+          )
     } 
   }
 
@@ -55,10 +61,13 @@ class RepoController(repo: UserRepository)(implicit
       _ <- logOps.logUserCreation(uid, user)
     } yield uid
 
-    ctx.complete(
-      userCreated(action.foldMap(interpreter))
-        .toHttp(StatusCodes.OK)
-      )
+    action
+      .foldMap(interpreter)
+      .map { uid =>
+        RouteResult.Complete(
+          userCreated(uid).toHttp(StatusCodes.OK)
+        )
+      }
   }
 
   def updateUser(
@@ -71,12 +80,18 @@ class RepoController(repo: UserRepository)(implicit
       _ <- logOps.logUserUpdate(uid, opt, newUser)
     } yield opt
 
-    action.foldMap(interpreter) match {
-      case Some(_) => 
-        ctx.complete(userUpdated(uid).toHttp(StatusCodes.OK))
-      case None => 
-        ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
-    }
+    action
+      .foldMap(interpreter)
+      .map {
+        case Some(_) => 
+          RouteResult.Complete(
+            userUpdated(uid).toHttp(StatusCodes.OK)
+          )
+        case None => 
+          RouteResult.Complete(
+            userNotFound(uid).toHttp(StatusCodes.NotFound)
+          )
+      }
   }
 
   def deleteUser(uid: Long): Route = ctx => {
@@ -86,13 +101,20 @@ class RepoController(repo: UserRepository)(implicit
       _ <- logOps.logUserDeletion(uid, opt)
     } yield opt
 
-    action.foldMap(interpreter) match {
-      case Some(_) => 
-        ctx.complete(userDeleted(uid).toHttp(StatusCodes.OK))
-      case None => 
-        ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
-    }
+    action
+      .foldMap(interpreter) 
+      .map {
+        case Some(_) => 
+          RouteResult.Complete(
+            userDeleted(uid).toHttp(StatusCodes.OK)
+          )
+        case None => 
+          RouteResult.Complete(
+            userNotFound(uid).toHttp(StatusCodes.NotFound)
+          )
+      }
   }
+
 }
 
 object RepoController {
@@ -101,7 +123,8 @@ object RepoController {
     repo: UserRepository
   )(implicit
     storeOps: StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
-    logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
+    logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
+    ec: ExecutionContext
   ): RepoController =
     new RepoController(repo)
 

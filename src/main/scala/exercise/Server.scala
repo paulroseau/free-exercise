@@ -13,14 +13,13 @@ import cats.free.Inject
 
 import exercise.algebra._
 import exercise.controller.RepoController
-import exercise.db.InMemoryUserRepo
+import exercise.db.InMemoryUserRepoSync
 import exercise.model.User
 import exercise.util._
 
 object Server {
 
   def main(args: Array[String]): Unit = {
- 
 
     implicit val system = ActorSystem("main-system")
     implicit val materializer = ActorMaterializer()
@@ -30,7 +29,7 @@ object Server {
     import Inject._ // implicits for Coproducts here
     implicit val storeOps = new StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
     implicit val logOps = new StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
-    val controller = RepoController(new InMemoryUserRepo)
+    val controller = RepoController(new InMemoryUserRepoSync)
 
     import CustomDirectives._
 
