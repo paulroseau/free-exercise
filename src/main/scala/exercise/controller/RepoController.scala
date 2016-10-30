@@ -26,7 +26,7 @@ class RepoController(repo: UserRepository)(implicit
     StoreInterpreter.syncImpure(repo) 
       .or(StoreLoggingInterpreter.idInterpreter)
 
-  def getUser(uid: Long): Route = {
+  def getUser(uid: Long): Route = ctx => {
 
     val action = for {
       userOpt <- storeOps.getUser(uid)
@@ -35,27 +35,27 @@ class RepoController(repo: UserRepository)(implicit
 
     action.foldMap(interpreter) match {
       case Some(user) =>
-        ctx => ctx.complete(
+        ctx.complete(
           HttpResponse(
             status = StatusCodes.OK, 
             entity = HttpEntity(
               ContentTypes.`application/json`,
               user.asJson.spaces2)))
       case None =>
-        ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
+        ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     } 
   }
 
   def createUser(
     user: User
-  ): Route = {
+  ): Route = ctx => {
 
     val action = for {
       uid <- storeOps.createUser(user)
       _ <- logOps.logUserCreation(uid, user)
     } yield uid
 
-    ctx => ctx.complete(
+    ctx.complete(
       userCreated(action.foldMap(interpreter))
         .toHttp(StatusCodes.OK)
       )
@@ -64,7 +64,7 @@ class RepoController(repo: UserRepository)(implicit
   def updateUser(
     uid: Long,
     newUser: User
-  ): Route = {
+  ): Route = ctx => {
 
     val action = for {
       opt <- storeOps.updateUser(uid, newUser)
@@ -73,13 +73,13 @@ class RepoController(repo: UserRepository)(implicit
 
     action.foldMap(interpreter) match {
       case Some(_) => 
-        ctx => ctx.complete(userUpdated(uid).toHttp(StatusCodes.OK))
+        ctx.complete(userUpdated(uid).toHttp(StatusCodes.OK))
       case None => 
-        ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
+        ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
   }
 
-  def deleteUser(uid: Long): Route = {
+  def deleteUser(uid: Long): Route = ctx => {
 
     val action = for {
       opt <- storeOps.deleteUser(uid)
@@ -88,9 +88,9 @@ class RepoController(repo: UserRepository)(implicit
 
     action.foldMap(interpreter) match {
       case Some(_) => 
-        ctx => ctx.complete(userDeleted(uid).toHttp(StatusCodes.OK))
+        ctx.complete(userDeleted(uid).toHttp(StatusCodes.OK))
       case None => 
-        ctx => ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
+        ctx.complete(userNotFound(uid).toHttp(StatusCodes.NotFound))
     }
   }
 }
