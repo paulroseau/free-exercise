@@ -38,7 +38,7 @@ object Server {
       pathPrefix("user") {
         pathSuffix(LongNumber) { uid =>
           get { 
-            controller.getUserId(uid)
+            controller.getUser(uid)
           } ~
           put { 
             extractWithArgonaut[User](User.decoder) { newUser =>

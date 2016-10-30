@@ -26,7 +26,7 @@ class RepoController(repo: UserRepository)(implicit
     StoreInterpreter.syncImpure(repo) 
       .or(StoreLoggingInterpreter.idInterpreter)
 
-  def getUserId(uid: Long): Route = {
+  def getUser(uid: Long): Route = {
 
     val action = for {
       userOpt <- storeOps.getUser(uid)
