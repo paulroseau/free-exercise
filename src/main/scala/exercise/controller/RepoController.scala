@@ -100,8 +100,8 @@ object RepoController {
   def apply(
     repo: UserRepository
   )(implicit
-    storeOps: StoreOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X],
-    logOps: StoreLoggingOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
+    storeOps: StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]],
+    logOps: StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
   ): RepoController =
     new RepoController(repo)
 
