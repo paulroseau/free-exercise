@@ -36,7 +36,16 @@ class MainController[F[_]](implicit
 
   val interpreter = Interpreter[Op, F]
 
-  def createUser(entity: HttpEntity): F[RouteResult] = ???
+  def createUser(entity: HttpEntity): F[RouteResult] =
+    withUserExtracted(entity) { user =>
+      val res0 = 
+        Action.createUser(user).foldMap(interpreter)
+
+      MF.map(res0) { uid =>
+        RouteResult.Complete(
+          userCreated(uid).toHttp(StatusCodes.OK))
+      }
+    }
 
   def getUser(uid: Long): F[RouteResult] = {
     val res = 
@@ -45,7 +54,7 @@ class MainController[F[_]](implicit
     MF.flatMap(res) { 
       case Some(user) => {
         val res0 = 
-          Action.serializeUser(user).foldMap(interpreter)
+          serializationOps.serializeUser(user).foldMap(interpreter)
 
         MF.map(res0) { jsonStr => 
           RouteResult.Complete(
@@ -79,10 +88,38 @@ class MainController[F[_]](implicit
           RouteResult.Complete(
             userNotFound(uid).toHttp(StatusCodes.NotFound)))
     }
+  }
 
+  private def withUserExtracted[T](
+    entity: HttpEntity
+  )(
+    f: User => F[RouteResult]
+  ): F[RouteResult] = {
+    val res =
+      serializationOps.deserializeUser(entity)
+        .foldMap(interpreter)
+
+    MF.flatMap(res) { 
+      case Left(UnsupportedContentType(ct)) =>
+        MF.pure(
+          RouteResult.Complete(
+            unsupportedContentType(ct)
+              .toHttp(StatusCodes.UnsupportedMediaType)))
+      case Left(InvalidJson(details)) =>
+        MF.pure(
+          RouteResult.Complete(
+            invalidJson(details)
+              .toHttp(StatusCodes.BadRequest)))
+      case Right(user) => f(user)
+    }
   }
 
   object Action {
+
+    def createUser(user: User): Free[Op, Long] = for {
+      uid <- storeOps.createUser(user)
+      _ <- logOps.logUserCreation(uid, user)
+    } yield uid
 
     def getUser(uid: Long): Free[Op, Option[User]] = for {
       userOpt <- storeOps.getUser(uid)
@@ -93,10 +130,6 @@ class MainController[F[_]](implicit
       opt <- storeOps.deleteUser(uid)
       _ <- logOps.logUserDeletion(uid, opt)
     } yield opt
-
-    def serializeUser(user: User): Free[Op, String] = for {
-      jsonStr <- serializationOps.serializeUser(user)
-    } yield jsonStr
   }
 }
 
@@ -116,4 +149,16 @@ object MainController {
 
   def userNotFound(uid: Long) =
     ResponseMessage("error", s"User id $uid does not reference any user")
+
+  def invalidJson(details: String) =
+    ResponseMessage(
+      status = "error", 
+      desc = s"Deserialization error $details"
+    )
+
+  def unsupportedContentType(contentType: ContentType) =
+    ResponseMessage(
+      status = "error", 
+      desc = s"""Content type $contentType is unsupported, use \"application/json\" instead"""
+    )
 }
