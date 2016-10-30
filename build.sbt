@@ -2,6 +2,8 @@ name := "free-exercise"
 
 scalaVersion := "2.11.8"
 
+addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.2")
+
 scalacOptions ++= Seq(
   "-deprecation",
   "-feature",

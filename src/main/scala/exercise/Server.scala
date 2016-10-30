@@ -28,8 +28,8 @@ object Server {
     implicit val executionContext = system.dispatcher
 
     import Inject._ // implicits for Coproducts here
-    implicit val storeOps = new StoreOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
-    implicit val logOps = new StoreLoggingOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
+    implicit val storeOps = new StoreOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
+    implicit val logOps = new StoreLoggingOps[Coproduct[StoreOp, StoreLoggingOp, ?]]
     val controller = RepoController(new InMemoryUserRepo)
 
     import CustomDirectives._
