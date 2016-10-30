@@ -7,22 +7,30 @@ import akka.http.scaladsl.server.{ Route, RouteResult }
 
 import argonaut._, Argonaut._, ArgonautShapeless._
 
-import exercise.algebra.StoreOps
+import cats.data.Coproduct
+
+import exercise.algebra._
 import exercise.db.UserRepository
-import exercise.interpreter.StoreInterpreter
+import exercise.interpreter.{ StoreInterpreter, StoreLoggingInterpreter }
 import exercise.model.User
 import exercise.util.ResponseMessage
 
-class RepoController(repo: UserRepository) {
+class RepoController(repo: UserRepository)(implicit
+  storeOps: StoreOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X],
+  logOps: StoreLoggingOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
+) {
 
   import RepoController._
 
-  val interpreter = StoreInterpreter.syncImpure(repo)
+  val interpreter = 
+    StoreInterpreter.syncImpure(repo) 
+      .or(StoreLoggingInterpreter.idInterpreter)
 
   def getUserId(uid: Long): Route = {
 
     val action = for {
-      userOpt <- StoreOps.getUser(uid)
+      userOpt <- storeOps.getUser(uid)
+      _ <- logOps.logUserRetrieval(uid, userOpt)
     } yield userOpt
 
     action.foldMap(interpreter) match {
@@ -43,7 +51,8 @@ class RepoController(repo: UserRepository) {
   ): Route = {
 
     val action = for {
-      uid <- StoreOps.createUser(user)
+      uid <- storeOps.createUser(user)
+      _ <- logOps.logUserCreation(uid, user)
     } yield uid
 
     ctx => ctx.complete(
@@ -58,7 +67,8 @@ class RepoController(repo: UserRepository) {
   ): Route = {
 
     val action = for {
-      opt <- StoreOps.updateUser(uid, newUser)
+      opt <- storeOps.updateUser(uid, newUser)
+      _ <- logOps.logUserUpdate(uid, opt, newUser)
     } yield opt
 
     action.foldMap(interpreter) match {
@@ -72,7 +82,8 @@ class RepoController(repo: UserRepository) {
   def deleteUser(uid: Long): Route = {
 
     val action = for {
-      opt <- StoreOps.deleteUser(uid)
+      opt <- storeOps.deleteUser(uid)
+      _ <- logOps.logUserDeletion(uid, opt)
     } yield opt
 
     action.foldMap(interpreter) match {
@@ -86,7 +97,12 @@ class RepoController(repo: UserRepository) {
 
 object RepoController {
 
-  def apply(repo: UserRepository): RepoController =
+  def apply(
+    repo: UserRepository
+  )(implicit
+    storeOps: StoreOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X],
+    logOps: StoreLoggingOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
+  ): RepoController =
     new RepoController(repo)
 
   def userCreated(uid: Long) =

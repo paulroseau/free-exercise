@@ -8,6 +8,10 @@ import akka.stream.ActorMaterializer
 
 import scala.io.StdIn
 
+import cats.data.Coproduct
+import cats.free.Inject
+
+import exercise.algebra._
 import exercise.controller.RepoController
 import exercise.db.InMemoryUserRepo
 import exercise.model.User
@@ -17,12 +21,17 @@ object Server {
 
   def main(args: Array[String]): Unit = {
  
+
     implicit val system = ActorSystem("main-system")
     implicit val materializer = ActorMaterializer()
     // needed for the future flatMap/onComplete in the end
     implicit val executionContext = system.dispatcher
 
+    import Inject._ // implicits for Coproducts here
+    implicit val storeOps = new StoreOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
+    implicit val logOps = new StoreLoggingOps[({type X[T] = Coproduct[StoreOp, StoreLoggingOp, T]})#X]
     val controller = RepoController(new InMemoryUserRepo)
+
     import CustomDirectives._
 
     val route =
