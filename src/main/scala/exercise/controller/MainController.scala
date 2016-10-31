@@ -7,6 +7,8 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.RouteResult
 import akka.http.scaladsl.model.{ HttpEntity, HttpRequest }
 
+import argonaut._, Argonaut._, ArgonautShapeless._
+
 import cats.Monad
 import cats.arrow.FunctionK
 import cats.data.Coproduct
@@ -54,7 +56,7 @@ class MainController[F[_]](implicit
     MF.flatMap(res) { 
       case Some(user) => {
         val res0 = 
-          serializationOps.serializeUser(user).foldMap(interpreter)
+          serializationOps.serialize[User](user).foldMap(interpreter)
 
         MF.map(res0) { jsonStr => 
           RouteResult.Complete(
@@ -108,7 +110,7 @@ class MainController[F[_]](implicit
     f: User => F[RouteResult]
   ): F[RouteResult] = {
     val res =
-      serializationOps.deserializeUser(entity)
+      serializationOps.deserialize[User](entity)
         .foldMap(interpreter)
 
     MF.flatMap(res) { 

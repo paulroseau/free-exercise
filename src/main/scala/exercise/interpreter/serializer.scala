@@ -5,7 +5,7 @@ import java.nio.charset.Charset
 import scala.concurrent.{ ExecutionContext, Future }
 import scala.concurrent.duration._
 
-import argonaut._, Argonaut._, ArgonautShapeless._
+import argonaut._, Argonaut._
 
 import akka.http.scaladsl.model._
 import akka.stream.Materializer
@@ -14,7 +14,6 @@ import akka.stream.scaladsl.StreamConverters
 import cats.arrow.FunctionK
 
 import exercise.algebra._
-import exercise.model.User
 
 object SerializerInterpreter {
 
@@ -29,9 +28,9 @@ object SerializerInterpreter {
       def apply[T](op: SerializationOp[T]): Future[T] =
         op match {
 
-          case SerializeUser(user) => Future(user.asJson.spaces2)
+          case Serialize(a, encoder) => Future(encoder.encode(a).spaces2)
 
-          case DeserializeUser(entity) =>
+          case DeserializeEntity(entity, decoder) =>
             entity.contentType match {
               case ContentTypes.`application/json` =>
                 entity
@@ -43,7 +42,7 @@ object SerializerInterpreter {
                     (for {
                       rawContent <- contentEither.right
                       json <- Parse.parse(rawContent).right
-                      res <- DecodeJson.of[User].decodeJson(json).result.right
+                      res <- decoder.decodeJson(json).result.right
                     } yield res)
                       .left
                       .map(err => InvalidJson(err.toString))
